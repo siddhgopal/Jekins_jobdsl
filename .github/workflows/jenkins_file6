@@ -1,0 +1,57 @@
+import groovy.transform.AutoClone
+import javaposse.jobdsl.dsl.jobs.WorkflowJob
+
+@AutoClone
+class JobDefinition {
+    def projects
+    string JenkinsFile,
+            displayName,
+            basePath = '',
+            name = null,
+            owner = ''
+            repository = 'devops'
+            credentialId = 'github-token'
+
+  Closure triggers
+
+  String getName() {
+    return name ?: new File(jenkinsFile).name.split('\\.')[0]
+  }
+
+  List<String> getFullNames() {
+    projects.collect { project ->
+      "${project}${basePath}/${getName()}"
+    }
+  }
+}
+
+class SimpleJobDefinition extends JobDefinition {
+  SimpleJobDefinition() {
+    basePath = "${basePath}"
+  }
+}
+
+def simplePipeline(JobDefinition jobDefinition) {
+  for(String jobName in jobDefinition.fullNames) {
+    WorkflowJob job = pipelineJob(jobName) {
+      definition {
+        cpsScm {
+          scm {
+            git {
+              remote {
+                credentials(jobDefinition.credentialId)
+                url("https://github.com/${jobDefinition.owner}/${jobDefinition.repository}.git")
+              }
+              branches(JENKINS_CONFIGURATION_BUILD_BRANCH)
+            }
+          }
+          lightweight(true)
+          scriptPath(jobDefinition.jenkinsFile)
+        }
+      }
+    }
+    if(jobDefinition.triggers) {
+      job.triggers jobDefinition.triggers
+    }
+  }
+}

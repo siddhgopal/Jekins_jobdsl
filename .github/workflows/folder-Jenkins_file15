@@ -1,0 +1,17 @@
+def createFolders(String name, Map<String, Map> children) {
+  def folder = folder(name)
+
+  children.each { item ->
+    switch(item.key) {
+      default:
+        createFolders(name + '/' + item.key, item.value)
+        break
+    }
+  }
+}
+
+[
+    'pegasus-prod': [:],
+    'pegasus-dev': [:],
+    'common': [:],
+].each { Map.Entry<String, Map> item -> createFolders(item.key, item.value) }

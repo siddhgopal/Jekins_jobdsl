@@ -1,0 +1,82 @@
+import groovy.transform.AutoClone
+import javaposse.jobdsl.dsl.jobs.WorkflowJob
+
+JENKINS_CONFIGURATION_BUILD_BRANCH = "*/{{ JENKINS_RUN_ON_BRANCH }}"
+
+@AutoClone
+class JobDefinition {
+  def projects
+  String jenkinsFile,
+         displayName,
+         basePath = '',
+         name = null,
+         owner = 'xyz',
+         repository = 'devops',
+         credentialId = 'github-token'
+
+  Closure triggers
+
+  String getName() {
+    return name ?: new File(jenkinsFile).name.split('\\.')[0]
+  }
+
+  List<String> getFullNames() {
+    projects.collect { project ->
+      "${project}${basePath}/${getName()}"
+    }
+  }
+}
+
+class SimpleJobDefinition extends JobDefinition {
+  SimpleJobDefinition() {
+    basePath = "${basePath}"
+  }
+}
+
+def simplePipeline(JobDefinition jobDefinition) {
+  for(String jobName in jobDefinition.fullNames) {
+    WorkflowJob job = pipelineJob(jobName) {
+      definition {
+        cpsScm {
+          scm {
+            git {
+              remote {
+                credentials(jobDefinition.credentialId)
+                url("https://github.com/${jobDefinition.owner}/${jobDefinition.repository}.git")
+              }
+              branches(JENKINS_CONFIGURATION_BUILD_BRANCH)
+            }
+          }
+          lightweight(true)
+          scriptPath(jobDefinition.jenkinsFile)
+        }
+      }
+    }
+    if(jobDefinition.triggers) {
+      job.triggers jobDefinition.triggers
+    }
+  }
+}
+
+/*** Pegasus Dev Jobs ***/
+simplePipeline(new SimpleJobDefinition(jenkinsFile: "jenkins/pegasus-dev-adminweb-deploy.groovy", basePath: "", projects: ["pegasus-dev"]))
+simplePipeline(new SimpleJobDefinition(jenkinsFile: "jenkins/pegasus-dev-convovriapi-deploy.groovy", basePath: "", projects: ["pegasus-dev"]))
+simplePipeline(new SimpleJobDefinition(jenkinsFile: "jenkins/pegasus-dev-interpreterweb-deploy.groovy", basePath: "", projects: ["pegasus-dev"]))
+simplePipeline(new SimpleJobDefinition(jenkinsFile: "jenkins/pegasus-dev-serviceemail-deploy.groovy", basePath: "", projects: ["pegasus-dev"]))
+simplePipeline(new SimpleJobDefinition(jenkinsFile: "jenkins/pegasus-dev-serviceuserauth-deploy.groovy", basePath: "", projects: ["pegasus-dev"]))
+simplePipeline(new SimpleJobDefinition(jenkinsFile: "jenkins/pegasus-dev-userweb-deploy.groovy", basePath: "", projects: ["pegasus-dev"]))
+/*** End Pegasus Dev Jobs ***/
+
+/*** pegasus prod jobs ***/
+simplePipeline(new SimpleJobDefinition(jenkinsFile: "jenkins/pegasus-prod-adminweb-deploy.groovy", basePath: "", projects: ["pegasus-prod"]))
+simplePipeline(new SimpleJobDefinition(jenkinsFile: "jenkins/pegasus-prod-convovriapi-deploy.groovy", basePath: "", projects: ["pegasus-prod"]))
+simplePipeline(new SimpleJobDefinition(jenkinsFile: "jenkins/pegasus-prod-interpreterweb-deploy.groovy", basePath: "", projects: ["pegasus-prod"]))
+simplePipeline(new SimpleJobDefinition(jenkinsFile: "jenkins/pegasus-prod-serviceemail-deploy.groovy", basePath: "", projects: ["pegasus-prod"]))
+simplePipeline(new SimpleJobDefinition(jenkinsFile: "jenkins/pegasus-prod-serviceuserauth-deploy.groovy", basePath: "", projects: ["pegasus-prod"]))
+simplePipeline(new SimpleJobDefinition(jenkinsFile: "jenkins/pegasus-prod-userweb-deploy.groovy", basePath: "", projects: ["pegasus-prod"]))
+/*** End pegasus prod jobs ***/
+
+/*** Common Jobs ***/
+simplePipeline(new SimpleJobDefinition(jenkinsFile: "jenkins/common-backup-jenkins-job-data.groovy", basePath: "", projects: ["common"]))
+simplePipeline(new SimpleJobDefinition(jenkinsFile: "jenkins/common-rds-backup-restore.groovy",basePath: "",projects: ["common"]))
+/*** End Common Jobs ***/

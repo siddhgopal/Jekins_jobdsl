@@ -1,0 +1,42 @@
+_folder('sid-a') {
+    description('Folder containing all jobs for sid-a')
+}
+job('sid-a/job-a') {
+    // Job config goes here
+}
+def myJob=job{name('test1')}
+def myJob2=job{name('test2')}
+view {
+  name('view1')
+  jobs{
+     name(myJob.name)
+    name(myJob2.name)
+  }   
+}
+job{
+    name('DSL JOB')
+    description('This is a Test Job')
+    triggers{
+        cron('H/20 7-20 * * 1-5')
+    }    
+}
+
+view(type:ListView){
+    name('DSL-JOBS')
+    description('Test View of DSL Job')
+    filterBuildQueue()
+    filterExecutors()
+    jobs{
+        name('DSL JOB')
+    }
+    columns{
+        status()
+        weather()
+        name()
+        lastSuccess()
+        lastFailure()
+        lastDuration()
+        buildButton()
+        lastBuildConsole()
+    }
+}

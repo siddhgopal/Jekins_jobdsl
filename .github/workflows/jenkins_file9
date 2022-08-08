@@ -1,0 +1,86 @@
+import groovy.transform.AutoClone
+import javaposse.jobdsl.dsl.jobs.WorkflowJob
+
+JENKINS_CONFIGURATION_BUILD_BRANCH = "*/{{ JENKINS_RUN_ON_BRANCH }}"
+
+@AutoClone
+class JobDefinition {
+  def projects
+  String jenkinsFile,
+         displayName,
+         basePath = '',
+         name = null,
+         owner = 'convo',
+         repository = 'devops',
+         credentialId = 'github-token'
+
+  Closure triggers
+
+  String getName() {
+    return name ?: new File(jenkinsFile).name.split('\\.')[0]
+  }
+
+  List<String> getFullNames() {
+    projects.collect { project ->
+      "${project}${basePath}/${getName()}"
+    }
+  }
+}
+
+class SimpleJobDefinition extends JobDefinition {
+  SimpleJobDefinition() {
+    basePath = "${basePath}"
+  }
+}
+
+def simplePipeline(JobDefinition jobDefinition) {
+  for(String jobName in jobDefinition.fullNames) {
+    WorkflowJob job = pipelineJob(jobName) {
+      definition {
+        cpsScm {
+          scm {
+            git {
+              remote {
+                credentials(jobDefinition.credentialId)
+                url("https://github.com/${jobDefinition.owner}/${jobDefinition.repository}.git")
+              }
+              branches(JENKINS_CONFIGURATION_BUILD_BRANCH)
+            }
+          }
+          lightweight(true)
+          scriptPath(jobDefinition.jenkinsFile)
+        }
+      }
+    }
+    if(jobDefinition.triggers) {
+      job.triggers jobDefinition.triggers
+    }
+  }
+}
+
+/*** on-prem Dev jobs ***/
+simplePipeline(new SimpleJobDefinition(jenkinsFile: "jenkins/onprem-automation-dev-deploy.groovy", basePath: "", projects: ["onprem-dev"]))
+simplePipeline(new SimpleJobDefinition(jenkinsFile: "jenkins/onprem-quantumweb-dev-deploy.groovy", basePath: "", projects: ["onprem-dev"]))
+simplePipeline(new SimpleJobDefinition(jenkinsFile: "jenkins/onprem-switchboard-dev-deploy.groovy", basePath: "", projects: ["onprem-dev"]))
+simplePipeline(new SimpleJobDefinition(jenkinsFile: "jenkins/onprem-devops-collaboration-dev.groovy", basePath: "", projects: ["onprem-dev"]))
+simplePipeline(new SimpleJobDefinition(jenkinsFile: "jenkins/onprem-grouphead-dev-deploy.groovy", basePath: "", projects: ["onprem-dev"]))
+simplePipeline(new SimpleJobDefinition(jenkinsFile: "jenkins/onprem-janus-dev-deploy.groovy", basePath: "", projects: ["onprem-dev"]))
+simplePipeline(new SimpleJobDefinition(jenkinsFile: "jenkins/onprem-linkweb-dev-deploy.groovy", basePath: "", projects: ["onprem-dev"]))
+simplePipeline(new SimpleJobDefinition(jenkinsFile: "jenkins/onprem-linkwebproxy-dev-deploy.groovy", basePath: "", projects: ["onprem-dev"]))
+simplePipeline(new SimpleJobDefinition(jenkinsFile: "jenkins/onprem-dev-add-remove-queue-numbers.groovy", basePath: "", projects: ["onprem-dev"]))
+/*** End on-prem Dev jobs ***/
+
+/*** on-prem Prod jobs ***/
+simplePipeline(new SimpleJobDefinition(jenkinsFile: "jenkins/onprem-automation-prod-deploy.groovy", basePath: "", projects: ["onprem-prod"]))
+simplePipeline(new SimpleJobDefinition(jenkinsFile: "jenkins/onprem-quantumweb-prod-deploy.groovy", basePath: "", projects: ["onprem-prod"]))
+simplePipeline(new SimpleJobDefinition(jenkinsFile: "jenkins/onprem-switchboard-prod-deploy.groovy", basePath: "", projects: ["onprem-prod"]))
+simplePipeline(new SimpleJobDefinition(jenkinsFile: "jenkins/onprem-grouphead-prod-deploy.groovy", basePath: "", projects: ["onprem-prod"]))
+simplePipeline(new SimpleJobDefinition(jenkinsFile: "jenkins/onprem-linkweb-prod-deploy.groovy", basePath: "", projects: ["onprem-prod"]))
+simplePipeline(new SimpleJobDefinition(jenkinsFile: "jenkins/onprem-linkwebproxy-prod-deploy.groovy", basePath: "", projects: ["onprem-prod"]))
+simplePipeline(new SimpleJobDefinition(jenkinsFile: "jenkins/onprem-prod-add-remove-queue-numbers.groovy", basePath: "", projects: ["onprem-prod"]))
+/*** End on-prem Prod jobs ***/
+
+/*** Common Jobs ***/
+simplePipeline(new SimpleJobDefinition(jenkinsFile: "jenkins/common-backup-jenkins-job-data.groovy", basePath: "", projects: ["common"]))
+simplePipeline(new SimpleJobDefinition(jenkinsFile: "jenkins/common-rds-backup-restore.groovy",basePath: "",projects: ["common"]))
+/*** End Common Jobs ***/
